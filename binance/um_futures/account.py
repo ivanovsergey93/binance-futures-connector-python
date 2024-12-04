@@ -156,60 +156,53 @@ def modify_order(
     symbol: str,
     side: str,
     quantity: float,
-    price: float,
+    price: float = None,
     orderId: int = None,
     origClientOrderId: str = None,
-    **kwargs
+    priceMatch: str = None,
+    **kwargs,
 ):
     """
-    |
+        |
     | **Modify Order (TRADE)**
     | *Order modify function, currently only LIMIT order modification is supported, modified orders will be reordered in the match queue*
 
     :API endpoint: ``PUT /fapi/v1/order``
     :API doc: https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/Modify-Order
+    :parameter symbol: string. The trading pair symbol (e.g., 'BTCUSDT').
+    :parameter side: string The side of the order ('BUY' or 'SELL').
+    :parameter quantity: float. The quantity of the order.
+    :parameter price: float. The price at which to modify the order. Required if priceMatch is not provided.
+    :parameter orderId: optional int. The ID of the order to modify. Either orderId or origClientOrderId must be provided.
+    :parameter origClientOrderId: optional string. The original client order ID. Either orderId or origClientOrderId must be provided.
+    :parameter priceMatch: The price match parameter. Required if price is not provided.
+    :parameter kwargs: Additional optional parameters.
 
-    :parameter symbol: string
-    :parameter side: string
-    :parameter quantity: float
-    :parameter price: float
-    :parameter orderId: optional int
-    :parameter origClientOrderId: optional string. Either orderId or origClientOrderId must be sent, and the orderId will prevail if both are sent.
-    :parameter recvWindow: optional int
-    |
+    :raises ValueError: If neither orderId nor origClientOrderId is provided, or if neither price nor priceMatch is provided.
+    :return: The response from the Binance API.
+    :rtype: dict
     """
-    check_required_parameters(
-        [
-            [symbol, "symbol"],
-            [side, "side"],
-            [quantity, "quantity"],
-            [price, "price"],
-        ]
-    )
+    check_required_parameters([[symbol, "symbol"], [side, "side"], [quantity, "quantity"]])
+
+    # Validate either orderId or origClientOrderId is present
     if (orderId is None) and (origClientOrderId is None):
-        check_required_parameters(
-            [
-                [orderId, "orderId"],
-            ]
-        )
-    elif orderId:
-        params = {
-            "symbol": symbol,
-            "side": side,
-            "quantity": quantity,
-            "orderId": orderId,
-            "price": price,
-            **kwargs,
-        }
+        check_required_parameters([[orderId, "orderId"]])
+
+    # Base parameters that are always required
+    params = {
+        "symbol": symbol,
+        "side": side,
+        "quantity": quantity,
+        **({"orderId": orderId} if orderId else {"origClientOrderId": origClientOrderId}),
+        **kwargs,
+    }
+
+    # Add either price or priceMatch parameter
+    if priceMatch is None:
+        check_required_parameters([[price, "price"]])
+        params["price"] = price
     else:
-        params = {
-            "symbol": symbol,
-            "side": side,
-            "quantity": quantity,
-            "origClientOrderId": origClientOrderId,
-            "price": price,
-            **kwargs,
-        }
+        params["priceMatch"] = priceMatch
 
     url_path = "/fapi/v1/order"
     return self.sign_request("PUT", url_path, params)
@@ -283,9 +276,7 @@ def new_batch_order(self, batchOrders: list):
     return self.sign_request("POST", url_path, params, True)
 
 
-def query_order(
-    self, symbol: str, orderId: int = None, origClientOrderId: str = None, **kwargs
-):
+def query_order(self, symbol: str, orderId: int = None, origClientOrderId: str = None, **kwargs):
     """
     |
     | **Query Order (USER_DATA)**
@@ -318,9 +309,7 @@ def query_order(
     return self.sign_request("GET", url_path, params)
 
 
-def cancel_order(
-    self, symbol: str, orderId: int = None, origClientOrderId: str = None, **kwargs
-):
+def cancel_order(self, symbol: str, orderId: int = None, origClientOrderId: str = None, **kwargs):
     """
     |
     | **Cancel Order (TRADE)**
@@ -373,9 +362,7 @@ def cancel_open_orders(self, symbol: str, **kwargs):
     return self.sign_request("DELETE", url_path, params)
 
 
-def cancel_batch_order(
-    self, symbol: str, orderIdList: list, origClientOrderIdList: list, **kwargs
-):
+def cancel_batch_order(self, symbol: str, orderIdList: list, origClientOrderIdList: list, **kwargs):
     """
     |
     | **Cancel Multiple Orders (TRADE)**
@@ -451,9 +438,7 @@ def countdown_cancel_order(self, symbol: str, countdownTime: int, **kwargs):
     return self.sign_request("POST", url_path, params)
 
 
-def get_open_orders(
-    self, symbol: str, orderId: int = None, origClientOrderId: str = None, **kwargs
-):
+def get_open_orders(self, symbol: str, orderId: int = None, origClientOrderId: str = None, **kwargs):
     """
     |
     | **Query Current Open Order (USER_DATA)**
@@ -614,9 +599,7 @@ def change_margin_type(self, symbol: str, marginType: str, **kwargs):
     return self.sign_request("POST", url_path, params)
 
 
-def modify_isolated_position_margin(
-    self, symbol: str, amount: float, type: int, **kwargs
-):
+def modify_isolated_position_margin(self, symbol: str, amount: float, type: int, **kwargs):
     """
     |
     | **Modify Isolated Position Margin (TRADE)**
